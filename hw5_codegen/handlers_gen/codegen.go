@@ -324,7 +324,7 @@ func parseStruct(currTypeName, tagValue, fieldName string, isInt bool, apigenapi
 			if len(enums) > 1 {
 				for _, enum := range enums {
 					f.FieldName = fieldName
-					f.Enum = append(enums, enum)
+					f.Enum = append(f.Enum, enum)
 				}
 
 			}
