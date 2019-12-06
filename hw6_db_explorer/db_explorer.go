@@ -3,8 +3,13 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/go-sql-driver/mysql"
+	"log"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -43,6 +48,7 @@ func processReques(c conf) func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
 				tables, err := allTables(c.db)
 				if err != nil {
+					log.Printf("URL: %s, error: %s", r.URL, err)
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
@@ -52,18 +58,30 @@ func processReques(c conf) func(w http.ResponseWriter, r *http.Request) {
 				tblName := r.URL.Path[1:]
 				rows, err := tableRows(c.db, tblName, queryValues)
 				if err != nil {
-					w.WriteHeader(http.StatusInternalServerError)
+					log.Printf("URL: %s, error: %s", r.URL.String(), err.Error())
+					if errMySQLError, ok := (err).(*mysql.MySQLError); ok && errMySQLError.Number == 1146 {
+						w.WriteHeader(http.StatusNotFound)
+						w.Write(jsonRespError("unknown table"))
+					} else {
+						w.WriteHeader(http.StatusInternalServerError)
+					}
 					return
 				}
 				w.Write(jsonRespTableRows(rows))
 				return
 			} else if strings.Count(r.URL.Path, "/") == 2 {
 				nameId := strings.Split(r.URL.Path, "/")
-				tblName := nameId[0]
-				rowId := nameId[1]
+				tblName := nameId[1]
+				rowId := nameId[2]
 				tableRow, err := tableRow(c.db, tblName, rowId)
 				if err != nil {
-					w.WriteHeader(http.StatusInternalServerError)
+					log.Printf("URL: %s, error: %s", r.URL, err)
+					if err.Error() == "record not found" {
+						w.WriteHeader(http.StatusNotFound)
+						w.Write(jsonRespError(err.Error()))
+					} else {
+						w.WriteHeader(http.StatusInternalServerError)
+					}
 					return
 				}
 				w.Write(jsonRespTableRow(tableRow))
@@ -77,6 +95,13 @@ func processReques(c conf) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func jsonRespError(error string) []byte {
+	resp := respMap()
+	resp["error"] = error
+	js, _ := json.Marshal(resp)
+	return js
+}
+
 func jsonRespTableRow(row interface{}) []byte {
 	resp := respMap()
 	respRows := respMap()
@@ -88,12 +113,56 @@ func jsonRespTableRow(row interface{}) []byte {
 
 func tableRow(db *sql.DB, name string, rowId string) (interface{}, error) {
 
-	var row interface{}
-	err := db.QueryRow("SELECT * FROM WHERE id = ?", rowId).Scan(&row)
+	rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s where id = ?", name), rowId)
 	if err != nil {
 		return nil, err
 	}
-	return row, nil
+	defer rows.Close()
+
+	if rows.Next() {
+		return mapRow(rows)
+	}
+	return nil, errors.New("record not found")
+
+}
+
+func mapRow(rows *sql.Rows) (map[string]interface{}, error) {
+
+	columns, _ := rows.Columns()
+	columnTypes, _ := rows.ColumnTypes()
+
+	mapRow := make(map[string]interface{}, len(columns))
+	var row = make([]interface{}, len(columns))
+	for ind := range columns {
+		row[ind] = new(interface{})
+	}
+
+	for ind, column := range columnTypes {
+		v := reflect.New(column.ScanType()).Interface()
+		switch v.(type) {
+		case *[]uint8:
+			v = new(*string)
+		case *int32:
+			v = new(*int32)
+		case *sql.RawBytes:
+			v = new(*string)
+		default:
+			// use this to find the type for the field
+			// you need to change
+			log.Printf("%v: %T", column.Name(), v)
+			row[ind] = v
+		}
+
+		mapRow[column.Name()] = v
+		row[ind] = v
+	}
+
+	err := rows.Scan(row...)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapRow, nil
 }
 
 func jsonRespTableRows(rows []interface{}) []byte {
@@ -121,22 +190,34 @@ func tableRows(db *sql.DB, name string, query url.Values) ([]interface{}, error)
 		offset = queryOffset
 	}
 
-	rows, err := db.Query("SELECT * FROM ? LIMIT ? OFFSET ?", name, limit, offset)
+	rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s limit ? offset ?", name), limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var row interface{}
-		err = rows.Scan(&row)
+		mapRow, err := mapRow(rows)
 		if err != nil {
 			return nil, err
 		}
-		tableRows = append(tableRows, row)
+		tableRows = append(tableRows, mapRow)
 	}
 	return tableRows, nil
 }
+
+//func convertDbValue(val interface{}, c *sql.ColumnType) interface{} {
+//
+//	v := reflect.New(c.ScanType()).Interface()
+//	switch v.(type) {
+//	case *[]uint8:
+//		v = new(string)
+//	default:
+//		// use this to find the type for the field
+//		// you need to change
+//		// log.Printf("%v: %T", column.Name(), v)
+//	}
+//}
 
 func allTables(db *sql.DB) ([]string, error) {
 
