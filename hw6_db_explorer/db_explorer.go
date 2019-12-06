@@ -11,6 +11,7 @@ import (
 
 // тут вы пишете код
 // обращаю ваше внимание - в этом задании запрещены глобальные переменные
+//docker run --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=1234 -d mysql
 
 type conf struct {
 	db *sql.DB
@@ -106,7 +107,7 @@ func jsonRespTableRows(rows []interface{}) []byte {
 
 func tableRows(db *sql.DB, name string, query url.Values) ([]interface{}, error) {
 
-	tableRows := make([]interface{}, 10)
+	var tableRows []interface{}
 
 	limit := 5
 	queryLimit, err := strconv.Atoi(query.Get("limit"))
@@ -139,7 +140,7 @@ func tableRows(db *sql.DB, name string, query url.Values) ([]interface{}, error)
 
 func allTables(db *sql.DB) ([]string, error) {
 
-	tables := make([]string, 10)
+	var tables []string
 
 	rows, err := db.Query("SHOW TABLES;")
 	if err != nil {
