@@ -24,10 +24,6 @@ type conf struct {
 	db *sql.DB
 }
 
-func byteError(err error) []byte {
-	return []byte("{\"error\": \"" + err.Error() + "\"}")
-}
-
 func respMap() map[string]interface{} {
 	return make(map[string]interface{})
 }
@@ -37,12 +33,12 @@ func NewDbExplorer(db *sql.DB) (http.Handler, error) {
 	conf := conf{db: db}
 
 	siteMix := http.NewServeMux()
-	siteMix.HandleFunc("/", processReques(conf))
+	siteMix.HandleFunc("/", processRequest(conf))
 
 	return siteMix, nil
 }
 
-func processReques(c conf) func(w http.ResponseWriter, r *http.Request) {
+func processRequest(c conf) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		queryValues, _ := url.ParseQuery(r.URL.RawQuery)
