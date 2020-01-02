@@ -1,4 +1,4 @@
-module hw7_microservice
+module github.com/eekrupin/coursera-gws-2/hw7_microservice
 
 go 1.12
 

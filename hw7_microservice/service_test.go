@@ -80,8 +80,8 @@ func TestServerStartStop(t *testing.T) {
 }
 
 // у вас наверняка будет что-то выполняться в отдельных горутинах
-// этим тестом мы проверяем что вы останавливаете все горутины которые у вас были и нет утечек
-// некоторый запас ( goroutinesPerTwoIterations*5 ) остаётся на случай рантайм горутин
+// этим тестом мы проверяем что вы останавливаете все гоостаётсярутины которые у вас были и нет утечек
+// некоторый запас ( goroutinesPerTwoIterations*5 )  на случай рантайм горутин
 func TestServerLeak(t *testing.T) {
 	//return
 	goroutinesStart := runtime.NumGoroutine()
