@@ -305,7 +305,7 @@ func TestApis(t *testing.T) {
 			},
 		},
 
-		// ошибки
+		// ошибки case = 15
 		Case{
 			Path:   "/items/3",
 			Method: http.MethodPost,
@@ -352,7 +352,7 @@ func TestApis(t *testing.T) {
 			},
 		},
 
-		// удаление
+		// удаление 19
 		Case{
 			Path:   "/items/3",
 			Method: http.MethodDelete,
@@ -379,7 +379,7 @@ func TestApis(t *testing.T) {
 			},
 		},
 
-		// и немного по другой таблице
+		// и немного по другой таблице 22
 		Case{
 			Path: "/users/1",
 			Result: CR{
@@ -436,7 +436,7 @@ func TestApis(t *testing.T) {
 				"error": "field user_id have invalid type",
 			},
 		},
-		// не забываем про sql-инъекции
+		// не забываем про sql-инъекции 26
 		Case{
 			Path:   "/users/",
 			Method: http.MethodPut,
